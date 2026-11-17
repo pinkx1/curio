@@ -1,6 +1,6 @@
 # CURIO — котики и компания
 
-Учебный сайт керамической мастерской по актуальным [макетам Figma](https://www.figma.com/design/zHfnsTafFG3pUndLGqzVU2/?node-id=127-1601). Опубликован на [GitHub Pages](https://pinkx1.github.io/cda-handmade-preview/).
+Учебный сайт керамической мастерской по актуальным [макетам Figma](https://www.figma.com/design/zHfnsTafFG3pUndLGqzVU2/?node-id=127-1601). Опубликован на [GitHub Pages](https://pinkx1.github.io/curio/).
 
 15 фигурок в трёх категориях: котики, жабки и Смешарики. На компьютере — свободная композиция каталога; на телефоне — три горизонтальные ленты. У каждого товара открывается окно с фотографией, ценой, размером и весом. Корзина сохраняет выбранные фигурки и количество в localStorage.
 
