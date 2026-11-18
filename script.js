@@ -132,3 +132,60 @@ document.querySelectorAll('.hero-cat').forEach(cat => {
   cat.addEventListener('animationend', () => cat.classList.remove('wiggle'));
 });
 updateCart();
+
+// Edge copies keep both neighboring cards visible, including at the ends of each mobile row.
+const mobileCatalog = window.matchMedia('(max-width: 700px)');
+document.querySelectorAll('.product-track').forEach(track => {
+  const cards = Array.from(track.children);
+  let copies = [];
+  let activeIndex = 0;
+  let settleTimer;
+  function center(card, behavior = 'instant') {
+    const offset = card.getBoundingClientRect().left - track.getBoundingClientRect().left;
+    track.scrollTo({left: track.scrollLeft + offset - (track.clientWidth - card.offsetWidth) / 2, behavior});
+  }
+  function settle() {
+    if (!mobileCatalog.matches) return;
+    const middle = track.getBoundingClientRect().left + track.clientWidth / 2;
+    const nearest = Array.from(track.children).reduce((a, b) => {
+      const distance = card => Math.abs(card.getBoundingClientRect().left + card.offsetWidth / 2 - middle);
+      return distance(a) < distance(b) ? a : b;
+    });
+    if (nearest === copies[0]) activeIndex = cards.length - 1;
+    else if (nearest === copies[1]) activeIndex = 0;
+    else activeIndex = cards.indexOf(nearest);
+    if (copies.includes(nearest)) center(cards[activeIndex]);
+  }
+  function configure() {
+    clearTimeout(settleTimer);
+    copies.forEach(copy => copy.remove());
+    copies = [];
+    if (!mobileCatalog.matches) return;
+    copies = [cards.at(-1), cards[0]].map(card => {
+      const copy = card.cloneNode(true);
+      copy.removeAttribute('id');
+      copy.dataset.carouselCopy = '';
+      copy.setAttribute('aria-hidden', 'true');
+      copy.inert = true;
+      return copy;
+    });
+    track.prepend(copies[0]);
+    track.append(copies[1]);
+    center(cards[activeIndex]);
+  }
+  track.addEventListener('scroll', () => {
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(settle, 180);
+  }, {passive: true});
+  track.addEventListener('keydown', event => {
+    if (!mobileCatalog.matches || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+    event.preventDefault();
+    const step = cards[0].offsetWidth + 16;
+    track.scrollBy({left: event.key === 'ArrowRight' ? step : -step, behavior: reducedMotion.matches ? 'instant' : 'smooth'});
+  });
+  mobileCatalog.addEventListener('change', configure);
+  window.addEventListener('resize', () => {
+    if (mobileCatalog.matches) center(cards[activeIndex]);
+  });
+  configure();
+});
