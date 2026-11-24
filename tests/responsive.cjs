@@ -24,14 +24,17 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
           foreground: ['.hero-cat.white', '.hero-cat.frog', '.hero-cat.yozhik'].map(rect),
           custom: rect('#custom'), customCopy: rect('.custom-copy'), photo: rect('.pet-photo'), figurine: rect('.pet-figurine'),
           price: rect('.custom-price'), order: rect('.custom-order'),
-          aboutTitle: rect('#about-title'), aboutText: rect('.about-section>p'), contact: rect('.contact-button'),
+          about: rect('.about-section'), footer: rect('.footer'), aboutTitle: rect('#about-title'), aboutText: rect('.about-section>p'), contact: rect('.contact-button'),
           customFont: font('.custom-copy p'), introFont: font('.catalog-intro p'),
           overflow: document.documentElement.scrollWidth > innerWidth
         };
       });
       const label = `${width}×${height}`;
       assert.equal(layout.screen.width, width, label + ': full width');
-      assert(Math.abs(layout.hero.bottom - height) < 1, label + ': all figures fit in the first viewport');
+      assert(layout.hero.bottom >= height - 1, label + ': first screen fills viewport height');
+      assert(layout.figures[0].left < -10 && layout.figures[1].right > width + 10, label + ': side cats extend past both viewport edges');
+      assert(layout.about.left === 0 && layout.about.width === width, label + ': author section spans the viewport');
+      assert(layout.footer.left === 0 && layout.footer.width === width, label + ': footer spans the viewport');
       assert.equal(layout.overflow, false, label + ': no page overflow');
       assert(layout.copy.top >= layout.header.bottom - 1, label + ': title clears header');
       assert(layout.copy.bottom <= Math.min(...layout.foreground.map(r => r.top)) + 1, label + ': title clears foreground');
@@ -42,8 +45,8 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
         const silhouettes = await page.evaluate(async () => {
           const images = [...document.querySelectorAll('.hero img')];
           await Promise.all(images.map(image => image.decode()));
-          const black = document.querySelector('.hero-cat.black').getBoundingClientRect();
-          const y = Math.floor(document.querySelector('.hero').getBoundingClientRect().bottom - black.height / .5416667 * .025);
+          const white = document.querySelector('.hero-cat.white').getBoundingClientRect();
+          const y = Math.floor(document.querySelector('.hero').getBoundingClientRect().bottom - white.height / .2166667 * .025);
           return images.map(image => {
             const canvas = document.createElement('canvas');
             canvas.width = innerWidth; canvas.height = 1;
@@ -59,6 +62,7 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
           });
         });
         const [black, ginger, white, frog, yozhik] = silhouettes;
+        assert(black[0] === 0 && ginger[1] === width - 1, label + ': visible side silhouettes reach both screen edges at the shore');
         for (const [left, right] of [[black, frog], [frog, white], [white, yozhik], [yozhik, ginger]]) {
           assert(left[1] >= right[0] - 2, label + ': visible silhouettes overlap near their feet');
         }
@@ -77,11 +81,14 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
     for (const [width, height] of [[390,844],[2560,1080],[2560,1440],[3840,800]]) {
       await page.setViewportSize({width, height});
       await page.evaluate(() => scrollTo({top: 0, behavior: 'instant'}));
-      const depth = await page.locator('.hero-cat.black').evaluate(element => Math.max(24, element.getBoundingClientRect().height / (innerWidth <= 700 ? .9589744 : .5416667) * .025));
+      const heroBottom = await page.locator('.hero').evaluate(element => element.getBoundingClientRect().bottom);
+      const depth = await page.locator('.hero-cat.white').evaluate(element => Math.max(24, element.getBoundingClientRect().height / (innerWidth <= 700 ? .3615385 : .2166667) * .025));
+      const shoreScroll = Math.max(0, heroBottom - height);
+      await page.evaluate(top => scrollTo({top, behavior: 'instant'}), shoreScroll);
       const hideFigures = await page.addStyleTag({content: '.hero-cat{visibility:hidden!important}'});
-      const shore = await page.screenshot({clip: {x: 0, y: Math.floor(height - depth + 2), width, height: 1}});
+      const shore = await page.screenshot({clip: {x: 0, y: Math.floor(heroBottom - shoreScroll - depth + 2), width, height: 1}});
       await hideFigures.evaluate(element => element.remove());
-      await page.evaluate(() => scrollTo({top: innerHeight - 100, behavior: 'instant'}));
+      await page.evaluate(top => scrollTo({top, behavior: 'instant'}), heroBottom - 100);
       const edge = await page.screenshot({clip: {x: 0, y: 120, width, height: 1}});
       for (const sample of [shore, edge]) {
         const fullWidthSand = await page.evaluate(async data => {
@@ -109,6 +116,6 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
       await page.keyboard.press('Escape');
     }
     assert.deepEqual(errors, []);
-    console.log('PASS: all characters visible in the first viewport, overlapping visible silhouettes, full-width sand background, readable type, no horizontal page scrolling');
+    console.log('PASS: cropped side cats, overlapping silhouettes, full-width sand/author/footer, readable type, no horizontal page scrolling');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
