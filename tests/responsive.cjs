@@ -74,22 +74,29 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
       }
       console.log('PASS', label);
     }
-    for (const [width, height] of [[390,844],[2560,1080],[3840,800]]) {
+    for (const [width, height] of [[390,844],[2560,1080],[2560,1440],[3840,800]]) {
       await page.setViewportSize({width, height});
+      await page.evaluate(() => scrollTo({top: 0, behavior: 'instant'}));
+      const depth = await page.locator('.hero-cat.black').evaluate(element => Math.max(24, element.getBoundingClientRect().height / (innerWidth <= 700 ? .9589744 : .5416667) * .025));
+      const hideFigures = await page.addStyleTag({content: '.hero-cat{visibility:hidden!important}'});
+      const shore = await page.screenshot({clip: {x: 0, y: Math.floor(height - depth + 2), width, height: 1}});
+      await hideFigures.evaluate(element => element.remove());
       await page.evaluate(() => scrollTo({top: innerHeight - 100, behavior: 'instant'}));
       const edge = await page.screenshot({clip: {x: 0, y: 120, width, height: 1}});
-      const fullWidthSand = await page.evaluate(async data => {
-        const image = new Image();
-        image.src = 'data:image/png;base64,' + data;
-        await image.decode();
-        const canvas = document.createElement('canvas');
-        canvas.width = image.width; canvas.height = image.height;
-        const context = canvas.getContext('2d');
-        context.drawImage(image, 0, 0);
-        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-        return pixels.every((value, index) => value === [242, 232, 218, 255][index % 4]);
-      }, edge.toString('base64'));
-      assert(fullWidthSand, `${width}×${height}: sand background continues across the full viewport width`);
+      for (const sample of [shore, edge]) {
+        const fullWidthSand = await page.evaluate(async data => {
+          const image = new Image();
+          image.src = 'data:image/png;base64,' + data;
+          await image.decode();
+          const canvas = document.createElement('canvas');
+          canvas.width = image.width; canvas.height = image.height;
+          const context = canvas.getContext('2d');
+          context.drawImage(image, 0, 0);
+          const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+          return pixels.every((value, index) => value === [242, 232, 218, 255][index % 4]);
+        }, sample.toString('base64'));
+        assert(fullWidthSand, `${width}×${height}: sand overlaps the figure bases and continues across the full viewport width`);
+      }
     }
     for (const [width, height] of [[390,568],[844,390],[1366,600]]) {
       await page.setViewportSize({width, height});
