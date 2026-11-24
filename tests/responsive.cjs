@@ -53,6 +53,25 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
       }
       console.log('PASS', label);
     }
+    for (const [width, height] of [[390,844],[2560,1080],[3840,800]]) {
+      await page.setViewportSize({width, height});
+      await page.evaluate(() => scrollTo({top: 0, behavior: 'instant'}));
+      const hideFigures = await page.addStyleTag({content: '.hero-cat{visibility:hidden!important}'});
+      const edge = await page.screenshot({clip: {x: 0, y: height - 32, width, height: 32}});
+      const solidPaper = await page.evaluate(async data => {
+        const image = new Image();
+        image.src = 'data:image/png;base64,' + data;
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = image.width; canvas.height = image.height;
+        const context = canvas.getContext('2d');
+        context.drawImage(image, 0, 0);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        return pixels.every((value, index) => value === [255, 252, 247, 255][index % 4]);
+      }, edge.toString('base64'));
+      await hideFigures.evaluate(element => element.remove());
+      assert(solidPaper, `${width}×${height}: lower section cannot show through transparent figure edges`);
+    }
     for (const [width, height] of [[390,568],[844,390],[1366,600]]) {
       await page.setViewportSize({width, height});
       await page.locator('#cat-jewelry .product-hit').click();
