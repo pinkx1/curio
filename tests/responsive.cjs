@@ -36,10 +36,29 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
       for (const r of layout.figures) {
         assert(r.height > 30 && r.top >= layout.hero.top - 1 && r.bottom <= layout.hero.bottom + 1, label + ': figures fit vertically');
       }
-      if (width >= 1101) {
-        const [black, ginger, white, frog, yozhik] = layout.figures;
+      if (width >= 701) {
+        const silhouettes = await page.evaluate(async () => {
+          const images = [...document.querySelectorAll('.hero img')];
+          await Promise.all(images.map(image => image.decode()));
+          const black = document.querySelector('.hero-cat.black').getBoundingClientRect();
+          const y = Math.floor(document.querySelector('.hero').getBoundingClientRect().bottom - black.height / .5416667 * .025);
+          return images.map(image => {
+            const canvas = document.createElement('canvas');
+            canvas.width = innerWidth; canvas.height = 1;
+            const context = canvas.getContext('2d');
+            const frame = image.closest('.cutout').getBoundingClientRect();
+            const bounds = image.getBoundingClientRect();
+            context.beginPath(); context.rect(frame.left, 0, frame.width, 1); context.clip();
+            context.drawImage(image, bounds.left, bounds.top - y, bounds.width, bounds.height);
+            const pixels = context.getImageData(0, 0, canvas.width, 1).data;
+            const opaque = [];
+            for (let x = 0; x < canvas.width; x++) if (pixels[x * 4 + 3] > 128) opaque.push(x);
+            return [opaque[0], opaque.at(-1)];
+          });
+        });
+        const [black, ginger, white, frog, yozhik] = silhouettes;
         for (const [left, right] of [[black, frog], [frog, white], [white, yozhik], [yozhik, ginger]]) {
-          assert(left.right >= right.left, label + ': neighboring figure frames overlap');
+          assert(left[1] >= right[0] - 2, label + ': visible silhouettes overlap near their feet');
         }
       }
       assert(layout.customFont >= 16 && layout.introFont >= 16, label + ': readable body text');
@@ -55,10 +74,9 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
     }
     for (const [width, height] of [[390,844],[2560,1080],[3840,800]]) {
       await page.setViewportSize({width, height});
-      await page.evaluate(() => scrollTo({top: 0, behavior: 'instant'}));
-      const hideFigures = await page.addStyleTag({content: '.hero-cat{visibility:hidden!important}'});
-      const edge = await page.screenshot({clip: {x: 0, y: height - 32, width, height: 32}});
-      const solidPaper = await page.evaluate(async data => {
+      await page.evaluate(() => scrollTo({top: innerHeight - 100, behavior: 'instant'}));
+      const edge = await page.screenshot({clip: {x: 0, y: 120, width, height: 1}});
+      const fullWidthSand = await page.evaluate(async data => {
         const image = new Image();
         image.src = 'data:image/png;base64,' + data;
         await image.decode();
@@ -67,10 +85,9 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
         const context = canvas.getContext('2d');
         context.drawImage(image, 0, 0);
         const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-        return pixels.every((value, index) => value === [255, 252, 247, 255][index % 4]);
+        return pixels.every((value, index) => value === [242, 232, 218, 255][index % 4]);
       }, edge.toString('base64'));
-      await hideFigures.evaluate(element => element.remove());
-      assert(solidPaper, `${width}×${height}: lower section cannot show through transparent figure edges`);
+      assert(fullWidthSand, `${width}×${height}: sand background continues across the full viewport width`);
     }
     for (const [width, height] of [[390,568],[844,390],[1366,600]]) {
       await page.setViewportSize({width, height});
@@ -83,6 +100,6 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
       await page.keyboard.press('Escape');
     }
     assert.deepEqual(errors, []);
-    console.log('PASS: all characters visible in the first viewport, overlapping figure frames, readable type, no horizontal page scrolling');
+    console.log('PASS: all characters visible in the first viewport, overlapping visible silhouettes, full-width sand background, readable type, no horizontal page scrolling');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
