@@ -12,6 +12,8 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
     const sizes = [[320,480],[568,320],[1024,400],[320,568],[360,640],[390,844],[430,932],[600,800],[700,844],[701,844],[768,1024],[844,390],[1024,600],[1101,768],[1280,720],[1366,768],[1440,900],[1920,1080],[2560,1080],[2560,1440],[3440,1440],[3840,1080],[3840,800]];
     for (const [width, height] of sizes) {
       await page.setViewportSize({width, height});
+      await page.evaluate(() => new Promise(requestAnimationFrame));
+      await page.waitForFunction(() => [...document.querySelectorAll('.hero img')].every(image => image.complete && image.naturalWidth));
       await page.evaluate(() => scrollTo({top: 0, behavior: 'instant'}));
       const layout = await page.evaluate(() => {
         const rect = selector => document.querySelector(selector).getBoundingClientRect().toJSON();
