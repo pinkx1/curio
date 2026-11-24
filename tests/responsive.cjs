@@ -29,12 +29,29 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
       });
       const label = `${width}×${height}`;
       assert.equal(layout.screen.width, width, label + ': full width');
-      assert(Math.abs(layout.hero.bottom - height) < 1, label + ': first screen fits viewport');
+      const firstScreenHeight = width >= 1101 ? Math.max(height, layout.header.bottom + width * 796 / 1440) : height;
+      assert(Math.abs(layout.hero.bottom - firstScreenHeight) < 1, label + ': first screen fits viewport or original desktop composition');
       assert.equal(layout.overflow, false, label + ': no page overflow');
       assert(layout.copy.top >= layout.header.bottom - 1, label + ': title clears header');
       assert(layout.copy.bottom <= Math.min(...layout.foreground.map(r => r.top)) + 1, label + ': title clears foreground');
       for (const r of layout.figures) {
         assert(r.height > 30 && r.top >= layout.hero.top - 1 && r.bottom <= layout.hero.bottom + 1, label + ': figures fit vertically');
+      }
+      if (width >= 1101) {
+        const reference = [
+          [-.0699517, .3666667, .5416667], [.710875, .3590278, .5416667],
+          [.330135, .3597222, .2166667], [.1801188, .1909722, .2], [.5826389, .2576389, .2166667]
+        ];
+        layout.figures.forEach((figure, index) => {
+          const [left, w, h] = reference[index];
+          assert(Math.abs(figure.left - left * width) < 1, label + ': original figure position');
+          assert(Math.abs(figure.width - w * width) < 1, label + ': original relative width');
+          assert(Math.abs(figure.height - h * width) < 1, label + ': uniform figure scale');
+        });
+        const [black, ginger, white, frog, yozhik] = layout.figures;
+        for (const [left, right] of [[black, frog], [frog, white], [white, yozhik], [yozhik, ginger]]) {
+          assert(left.right >= right.left, label + ': neighboring figure frames overlap');
+        }
       }
       assert(layout.customFont >= 16 && layout.introFont >= 16, label + ': readable body text');
       assert(layout.aboutTitle.bottom <= layout.aboutText.top, label + ': author title clears description');
@@ -58,6 +75,6 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
       await page.keyboard.press('Escape');
     }
     assert.deepEqual(errors, []);
-    console.log('PASS: viewport hero, responsive sections, readable type, no overlaps or horizontal page scrolling');
+    console.log('PASS: original desktop composition and overlapping figures, responsive sections, readable type, no horizontal page scrolling');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
