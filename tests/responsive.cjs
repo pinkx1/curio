@@ -9,7 +9,7 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(url);
     await page.evaluate(() => document.fonts.ready);
-    const sizes = [[320,480],[568,320],[1024,400],[320,568],[360,640],[390,844],[430,932],[600,800],[700,844],[701,844],[768,1024],[844,390],[1024,600],[1101,768],[1280,720],[1366,768],[1440,900],[1920,1080],[2560,1080],[2560,1440],[3440,1440],[3840,1080],[3840,800]];
+    const sizes = [[320,480],[568,320],[1024,400],[320,568],[360,640],[390,844],[409,664],[430,932],[600,800],[700,844],[701,844],[768,1024],[844,390],[1024,600],[1101,768],[1280,720],[1366,768],[1440,900],[1920,1080],[2560,1080],[2560,1440],[3440,1440],[3840,1080],[3840,800]];
     for (const [width, height] of sizes) {
       await page.setViewportSize({width, height});
       await page.evaluate(() => new Promise(requestAnimationFrame));
@@ -32,6 +32,7 @@ const url = process.env.CURIO_URL || 'http://127.0.0.1:8765/';
       const label = `${width}×${height}`;
       assert.equal(layout.screen.width, width, label + ': full width');
       assert(layout.hero.bottom >= height - 1, label + ': first screen fills viewport height');
+      if (width <= 700 && height > width) assert(Math.abs(layout.hero.bottom - height) < 1, label + ': portrait phone fits one viewport');
       assert(layout.figures[0].left < -10 && layout.figures[1].right > width + 10, label + ': side cats extend past both viewport edges');
       assert(layout.about.left === 0 && layout.about.width === width, label + ': author section spans the viewport');
       assert(layout.footer.left === 0 && layout.footer.width === width, label + ': footer spans the viewport');
